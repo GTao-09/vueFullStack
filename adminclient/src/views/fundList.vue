@@ -1,8 +1,34 @@
+<!--
+ * @Description: In User Settings Edit
+ * @Author: your name
+ * @Date: 2019-08-04 18:51:05
+ * @LastEditTime: 2019-08-10 10:37:54
+ * @LastEditors: Please set LastEditors
+ -->
 <template>
   <div class="fundlist">
     <div class="fundAdd-container">
-      <el-form :inline="true" ref="add-data">
-        <el-form-item class="btnRight">
+      <el-form :inline="true" ref="add-data" :model='search_data'>
+        <!-- 筛选 -->
+        <el-form-item label="按照时间筛选:">
+            <el-date-picker
+            v-model="search_data.startTime"
+            type="datetime"
+            placeholder="选择开始时间"
+            >
+            </el-date-picker>
+            --
+            <el-date-picker
+            v-model="search_data.endTime"
+            type="datetime"
+            placeholder="选择结束时间"
+            >
+            </el-date-picker>
+        </el-form-item>
+        <el-form-item>
+            <el-button type='primary' size="search" @click="handleSearch()">筛选</el-button>
+        </el-form-item>
+        <el-form-item class="btnRight" v-if="user.identity === 'manager'">
           <el-button type="primary" size="small" icon="view" @click="handleAdd()">添加</el-button>
         </el-form-item>
       </el-form>
@@ -34,13 +60,30 @@
         </template>
       </el-table-column>
       <el-table-column prop="remark" label="备注" align="center" width="220"></el-table-column>
-      <el-table-column label="操作" width="180" align="center">
-        <template slot-scope="scope">
+      <el-table-column label="操作" width="180" align="center" v-if="user.identity === 'manager'">
+        <template slot-scope="scope" >
           <el-button size="mini" icon="edit" @click="handleEdit(scope.$index, scope.row)">编辑</el-button>
           <el-button size="mini" type="danger" icon="delete" @click="handleDelete(scope.$index, scope.row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
+    <!-- 分页 -->
+    <el-row>
+      <el-col :span="24">
+        <div class="pagination">
+          <el-pagination
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+            :current-page.sync="paginations.page_index"
+            :page-sizes="paginations.page_sizes"
+            :page-size="paginations.page_size"
+            :layout="paginations.layout"
+            :total="paginations.total"
+          >
+          </el-pagination>
+        </div>
+      </el-col>
+    </el-row>
     </div>
     <Dialog :dialog="dialog" :formData="formData" @updata='getProgile'></Dialog>
   </div>
@@ -54,6 +97,17 @@ export default {
   },
   data () {
     return {
+      search_data: {
+        startTime: '',
+        endTime: ''
+      },
+      paginations: {
+        page_index: 1, // 当前位于多少页
+        total: 0, // 总数
+        page_size: 5, // 一页显示多少条
+        page_sizes: [5, 10, 15], // 每页显示多少条
+        layout: 'total,sizes,prev,pager,next,jumper' // 翻页属性
+      },
       tableData: [],
       dialog: {
         show: false,
@@ -74,6 +128,11 @@ export default {
   mounted () {
     this.getProgile()
   },
+  computed: {
+    user () {
+      return this.$store.getters.user
+    }
+  },
   methods: {
     getProgile () {
       // 获取表格数据
@@ -81,11 +140,14 @@ export default {
         .get('/api/profiles')
         .then(res => {
           // console.log(res)
-          this.tableData = res.data
+          this.allTableData = res.data
+          this.filterTableData = res.data // 筛选后的数据
+          // 设置分页数据
+          this.setPaginations()
         })
         .catch(err => console.log(err))
     },
-    handleEdit (index, row) {
+    handleEdit (index, row) { // 编辑按钮
       // 编辑
       // console.log(this.dialog)
       this.dialog = {
@@ -103,7 +165,7 @@ export default {
         id: row._id
       }
     },
-    handleDelete (index, row) {
+    handleDelete (index, row) { // 删除按钮
       if (window.confirm('你确定删除吗?')) {
         this.$axios.delete(`/api/profiles/delete/${row._id}`)
           .then(res => {
@@ -115,7 +177,7 @@ export default {
           })
       }
     },
-    handleAdd () {
+    handleAdd () { // 增加按钮
       this.dialog = {
         show: true,
         title: '添加资金信息',
@@ -130,6 +192,58 @@ export default {
         remark: '',
         id: ''
       }
+    },
+    setPaginations () { // 设置分页数据
+      // 分页属性设置
+      this.paginations.total = this.allTableData.length
+      this.paginations.page_index = 1
+      this.paginations.page_size = 5
+      // 设置默认分页数据
+      this.tableData = this.allTableData.filter((item, index) => {
+        return index < this.paginations.page_size
+      })
+    },
+    handleSizeChange (page_size) { // 切换size
+      this.paginations.page_index = 1
+      this.paginations.page_size = page_size
+      this.tableData = this.allTableData.filter((item, index) => {
+        return index < this.paginations.page_size
+      })
+    },
+    handleCurrentChange (page) { // 切换数据页
+      // 获取当前页
+      let index = this.paginations.page_size * (page - 1)
+      // 数据总数
+      let nums = this.paginations.page_size * page
+      // 容器
+      let tables = []
+      for (let i = index; i < nums; i++) {
+        if (this.allTableData[i]) {
+          tables.push(this.allTableData[i])
+        }
+        this.tableData = tables
+      }
+    },
+    handleSearch () { // 筛选按钮
+      if (!this.search_data.startTime || !this.search_data.endTime) {
+        this.$message({
+          type: 'warning',
+          message: '请选择时间区间'
+        })
+        this.getProgile()
+        return
+      }
+      let sTime = this.search_data.startTime.getTime()
+      let eTime = this.search_data.endTime.getTime()
+      console.log(sTime)
+      console.log(eTime)
+      this.allTableData = this.tableData.filter(item => {
+        let date = new Date(item.data)
+        let time = date.getTime()
+        console.log(time)
+        return time >= sTime && time <= eTime
+      })
+      this.setPaginations()
     }
   }
 }
@@ -143,5 +257,11 @@ export default {
 }
 .btnRight {
   float: right;
+  margin-right: 30px;
+}
+.pagination{
+  text-align: right;
+  margin-top: 10px;
+  margin-right: 20px;
 }
 </style>

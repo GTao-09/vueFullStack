@@ -1,3 +1,10 @@
+<!--
+ * @Description: In User Settings Edit
+ * @Author: your name
+ * @Date: 2019-08-04 14:59:52
+ * @LastEditTime: 2019-08-10 08:42:01
+ * @LastEditors: Please set LastEditors
+ -->
 <template>
   <header class="head-nav">
     <el-row>
@@ -8,7 +15,7 @@
       <el-col :span="6" class="user">
         <div class="userinfo">
           <img
-            :src="user.avatar"
+            :src="user.avatar || 'http://www.gravatar.com/avatar/00?s=120&d=mm&r=g'"
             alt="头像"
             class="avatar"
           />

@@ -1,9 +1,16 @@
+<!--
+ * @Description: In User Settings Edit
+ * @Author: your name
+ * @Date: 2019-08-04 17:11:07
+ * @LastEditTime: 2019-08-10 08:43:42
+ * @LastEditors: Please set LastEditors
+ -->
 <template>
   <div class="infoshow">
     <el-row type="flex" class="row-bg" justify="center">
       <el-col :span="8">
         <div class="user">
-          <img :src="user.avatar" alt="头像" class="avatar">
+          <img :src="user.avatar || 'http://www.gravatar.com/avatar/00?s=120&d=mm&r=g'" alt="头像" class="avatar">
         </div>
       </el-col>
       <el-col :span="16">
